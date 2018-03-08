@@ -9,7 +9,6 @@
 #![feature(manually_drop)]
 #![no_std]
 
-extern crate x86;
 extern crate spin;
 
 pub use mutex_irqsafe::*;

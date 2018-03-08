@@ -31,17 +31,15 @@ impl ::core::ops::Drop for HeldInterrupts {
 
 // Rust wrappers around the x86-family of interrupt-related instructions.
 
-use x86::shared::irq;
-
 #[inline(always)]
 pub fn enable_interrupts() {
-    unsafe { irq::enable(); }
+    unsafe { asm!("sti"); }
 }
 
 
 #[inline(always)]
 pub fn disable_interrupts() {
-    unsafe { irq::disable(); }
+    unsafe { asm!("cli"); }
 }
 
 
