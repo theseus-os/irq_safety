@@ -33,13 +33,13 @@ impl ::core::ops::Drop for HeldInterrupts {
 
 #[inline(always)]
 pub fn enable_interrupts() {
-    unsafe { asm!("sti"); }
+    unsafe { asm!("sti" : : : "memory" : "volatile"); }
 }
 
 
 #[inline(always)]
 pub fn disable_interrupts() {
-    unsafe { asm!("cli"); }
+    unsafe { asm!("cli" : : : "memory" : "volatile"); }
 }
 
 
