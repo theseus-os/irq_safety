@@ -10,6 +10,18 @@ license = "MIT"
 [dependencies]
 spin = "0.4.5"
 
+[dependencies.stable_deref_trait]
+git = "https://github.com/kevinaboos/stable_deref_trait.git"
+branch = "spin"
+default-features = false
+features = [ "alloc", "spin" ]
+
+[dependencies.owning_ref]
+# version = "0.3.3"
+# path = "../../libs/owning-ref-rs"
+git = "https://github.com/kevinaboos/owning-ref-rs.git"
+
+
 [features]
 const_fn = []
-default = ["const_fn"]
+default = [ "const_fn" ]

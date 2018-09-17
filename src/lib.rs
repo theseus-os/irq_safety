@@ -10,6 +10,8 @@
 #![no_std]
 
 extern crate spin;
+extern crate owning_ref;
+extern crate stable_deref_trait;
 
 pub use mutex_irqsafe::*;
 pub use rwlock_irqsafe::*;
