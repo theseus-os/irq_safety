@@ -66,6 +66,6 @@ pub fn interrupts_enabled() -> bool {
         let primask:usize;  
         asm!("mrs $0, PRIMASK" : "=r"(primask) : : : "volatile");
         primask == 0
-    };
+    }
 
 }
