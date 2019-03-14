@@ -33,22 +33,28 @@ impl ::core::ops::Drop for HeldInterrupts {
 
 #[inline(always)]
 pub fn enable_interrupts() {
+    #[cfg(any(target_arch="x86", target_arch="x86_64"))]
     unsafe { asm!("sti" : : : "memory" : "volatile"); }
 }
 
 
 #[inline(always)]
 pub fn disable_interrupts() {
+    #[cfg(any(target_arch="x86", target_arch="x86_64"))]
     unsafe { asm!("cli" : : : "memory" : "volatile"); }
 }
 
 
 #[inline(always)]
 pub fn interrupts_enabled() -> bool {
+    #[cfg(any(target_arch="x86", target_arch="x86_64"))]
     unsafe { 
         // we only need the lower 16 bits of the eflags/rflags register
         let flags: usize;
 		asm!("pushf; pop $0" : "=r" (flags) : : "memory" : "volatile");
 		(flags & 0x0200) != 0
      }
+
+    #[cfg(any(target_arch="aarch64"))]
+    {true}
 }
