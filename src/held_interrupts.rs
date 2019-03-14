@@ -30,11 +30,15 @@ impl ::core::ops::Drop for HeldInterrupts {
 
 
 // Rust wrappers around the x86-family of interrupt-related instructions.
-
 #[inline(always)]
 pub fn enable_interrupts() {
     #[cfg(any(target_arch="x86", target_arch="x86_64"))]
     unsafe { asm!("sti" : : : "memory" : "volatile"); }
+
+    #[cfg(any(target_arch="aarch64"))]
+    unsafe { asm!("cpsie i" : : : "memory" : "volatile"); }
+
+    
 }
 
 
@@ -42,6 +46,11 @@ pub fn enable_interrupts() {
 pub fn disable_interrupts() {
     #[cfg(any(target_arch="x86", target_arch="x86_64"))]
     unsafe { asm!("cli" : : : "memory" : "volatile"); }
+
+    #[cfg(any(target_arch="aarch64"))]
+    unsafe { asm!("cpsid i" : : : "memory" : "volatile"); }
+
+
 }
 
 
@@ -56,5 +65,10 @@ pub fn interrupts_enabled() -> bool {
      }
 
     #[cfg(any(target_arch="aarch64"))]
-    {true}
+    unsafe {
+        let primask:usize;  
+        asm!("mrs $0, PRIMASK" : "=r"(primask) : : : "volatile");
+        primask == 0;
+    };
+
 }
