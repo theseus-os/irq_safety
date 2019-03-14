@@ -37,7 +37,6 @@ pub fn enable_interrupts() {
 
     #[cfg(any(target_arch="aarch64"))]
     unsafe { asm!("cpsie i" : : : "memory" : "volatile"); }
-
     
 }
 
@@ -49,8 +48,6 @@ pub fn disable_interrupts() {
 
     #[cfg(any(target_arch="aarch64"))]
     unsafe { asm!("cpsid i" : : : "memory" : "volatile"); }
-
-
 }
 
 
@@ -68,7 +65,7 @@ pub fn interrupts_enabled() -> bool {
     unsafe {
         let primask:usize;  
         asm!("mrs $0, PRIMASK" : "=r"(primask) : : : "volatile");
-        primask == 0;
+        primask == 0
     };
 
 }
