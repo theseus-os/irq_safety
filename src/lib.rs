@@ -5,8 +5,7 @@
 
 #![cfg_attr(feature = "const_fn", feature(const_fn))]
 
-#![feature(asm)]
-#![feature(manually_drop)]
+#![feature(llvm_asm)]
 #![no_std]
 
 extern crate spin;
