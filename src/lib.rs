@@ -3,8 +3,6 @@
 //! Mutex and RwLock, with the added behavior of holding interrupts
 //! for the duration of the Mutex guard. 
 
-#![cfg_attr(feature = "const_fn", feature(const_fn))]
-
 #![feature(llvm_asm)]
 #![no_std]
 

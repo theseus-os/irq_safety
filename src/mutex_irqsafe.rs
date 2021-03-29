@@ -28,8 +28,8 @@ use owning_ref::{OwningRef, OwningRefMut};
 /// # Simple examples
 ///
 /// ```
-/// use spin;
-/// let spin_mutex = spin::MutexIrqSafe::new(0);
+/// use irq_safety;
+/// let spin_mutex = irq_safety::MutexIrqSafe::new(0);
 ///
 /// // Modify the data
 /// {
@@ -50,11 +50,11 @@ use owning_ref::{OwningRef, OwningRefMut};
 /// # Thread-safety example
 ///
 /// ```
-/// use spin;
+/// use irq_safety;
 /// use std::sync::{Arc, Barrier};
 ///
 /// let numthreads = 1000;
-/// let spin_mutex = Arc::new(spin::MutexIrqSafe::new(0));
+/// let spin_mutex = Arc::new(irq_safety::MutexIrqSafe::new(0));
 ///
 /// // We use a barrier to ensure the readout happens after all writing
 /// let barrier = Arc::new(Barrier::new(numthreads + 1));
@@ -104,10 +104,9 @@ impl<T> MutexIrqSafe<T>
     /// May be used statically:
     ///
     /// ```
-    /// #![feature(const_fn)]
-    /// use spin;
+    /// use irq_safety;
     ///
-    /// static MutexIrqSafe: spin::MutexIrqSafe<()> = spin::MutexIrqSafe::new(());
+    /// static MutexIrqSafe: irq_safety::MutexIrqSafe<()> = irq_safety::MutexIrqSafe::new(());
     ///
     /// fn demo() {
     ///     let lock = MutexIrqSafe.lock();
@@ -129,10 +128,10 @@ impl<T> MutexIrqSafe<T>
     /// If you want to use it statically, you can use the `const_fn` feature.
     ///
     /// ```
-    /// use spin;
+    /// use irq_safety;
     ///
     /// fn demo() {
-    ///     let MutexIrqSafe = spin::MutexIrqSafe::new(());
+    ///     let MutexIrqSafe = irq_safety::MutexIrqSafe::new(());
     ///     let lock = MutexIrqSafe.lock();
     ///     // do something with lock
     ///     drop(lock);
@@ -173,7 +172,7 @@ impl<T: ?Sized> MutexIrqSafe<T>
     /// and the lock will be dropped when the guard falls out of scope.
     ///
     /// ```
-    /// let mylock = spin::MutexIrqSafe::new(0);
+    /// let mylock = irq_safety::MutexIrqSafe::new(0);
     /// {
     ///     let mut data = mylock.lock();
     ///     // The lock is now locked and the data can be accessed

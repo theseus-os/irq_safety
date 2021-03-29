@@ -137,7 +137,7 @@ impl<T: ?Sized> RwLockIrqSafe<T>
     /// or writers will acquire the lock first.
     ///
     /// ```
-    /// let mylock = spin::RwLock::new(0);
+    /// let mylock = irq_safety::RwLock::new(0);
     /// {
     ///     match mylock.try_read() {
     ///         Some(data) => {
@@ -194,7 +194,7 @@ impl<T: ?Sized> RwLockIrqSafe<T>
     /// when dropped.
     ///
     /// ```
-    /// let mylock = spin::RwLock::new(0);
+    /// let mylock = irq_safety::RwLock::new(0);
     /// {
     ///     let mut data = mylock.write();
     ///     // The lock is now locked and the data can be written
@@ -218,7 +218,7 @@ impl<T: ?Sized> RwLockIrqSafe<T>
     /// returned.
     ///
     /// ```
-    /// let mylock = spin::RwLock::new(0);
+    /// let mylock = irq_safety::RwLock::new(0);
     /// {
     ///     match mylock.try_write() {
     ///         Some(mut data) => {
