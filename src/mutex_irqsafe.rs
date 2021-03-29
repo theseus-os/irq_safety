@@ -114,31 +114,7 @@ impl<T> MutexIrqSafe<T>
     ///     drop(lock);
     /// }
     /// ```
-    #[cfg(feature = "const_fn")]
     pub const fn new(user_data: T) -> MutexIrqSafe<T>
-    {
-        MutexIrqSafe
-        {
-            lock: Mutex::new(user_data),
-        }
-    }
-
-    /// Creates a new spinlock wrapping the supplied data.
-    ///
-    /// If you want to use it statically, you can use the `const_fn` feature.
-    ///
-    /// ```
-    /// use irq_safety;
-    ///
-    /// fn demo() {
-    ///     let MutexIrqSafe = irq_safety::MutexIrqSafe::new(());
-    ///     let lock = MutexIrqSafe.lock();
-    ///     // do something with lock
-    ///     drop(lock);
-    /// }
-    /// ```
-    #[cfg(not(feature = "const_fn"))]
-    pub fn new(user_data: T) -> MutexIrqSafe<T>
     {
         MutexIrqSafe
         {

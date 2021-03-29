@@ -45,8 +45,6 @@ impl<T> RwLockIrqSafe<T>
     /// May be used statically:
     ///
     /// ```
-    /// #![feature(const_fn)]
-    ///
     /// static RW_LOCK_IRQ_SAFE: RwLockIrqSafe<()> = RwLockIrqSafe::new(());
     ///
     /// fn demo() {
@@ -56,31 +54,7 @@ impl<T> RwLockIrqSafe<T>
     /// }
     /// ```
     #[inline]
-    #[cfg(feature = "const_fn")]
     pub const fn new(user_data: T) -> RwLockIrqSafe<T>
-    {
-        RwLockIrqSafe
-        {
-            rwlock: RwLock::new(user_data),
-        }
-    }
-
-    /// Creates a new spinlock wrapping the supplied data.
-    ///
-    /// If you want to use it statically, you can use the `const_fn` feature.
-    ///
-    /// ```
-    ///
-    /// fn demo() {
-    ///     let rw_lock_irq_safe = RwLockIrqSafe::new(());
-    ///     let lock = rw_lock_irq_safe.read();
-    ///     // do something with lock
-    ///     drop(lock);
-    /// }
-    /// ```
-    #[inline]
-    #[cfg(not(feature = "const_fn"))]
-    pub fn new(user_data: T) -> RwLockIrqSafe<T>
     {
         RwLockIrqSafe
         {
