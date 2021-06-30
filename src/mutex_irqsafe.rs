@@ -159,10 +159,11 @@ impl<T: ?Sized> MutexIrqSafe<T>
     /// ```
     pub fn lock(&self) -> MutexIrqSafeGuard<T>
     {
-        MutexIrqSafeGuard
-        {
-            held_irq: ManuallyDrop::new(hold_interrupts()),
-            guard: ManuallyDrop::new(self.lock.lock())
+        loop {
+            match self.try_lock() {
+                Some(guard) => return guard,
+                _ => {}
+            }
         }
     }
 
@@ -181,17 +182,12 @@ impl<T: ?Sized> MutexIrqSafe<T>
     /// a guard within Some.
     pub fn try_lock(&self) -> Option<MutexIrqSafeGuard<T>>
     {
-        match self.lock.try_lock() {
-            None => None,
-            success => {
-                Some(
-                    MutexIrqSafeGuard {
-                        held_irq: ManuallyDrop::new(hold_interrupts()),
-                        guard: ManuallyDrop::new(success.unwrap()),
-                    }
-                )
-            }
-        }
+        if self.lock.is_locked() { return None; }
+        let held_irq = hold_interrupts();
+        self.lock.try_lock().map(|guard| MutexIrqSafeGuard {
+            held_irq: ManuallyDrop::new(held_irq),
+            guard: ManuallyDrop::new(guard),
+        })
     }
 
 }
