@@ -159,10 +159,11 @@ impl<T: ?Sized> MutexIrqSafe<T>
     /// ```
     pub fn lock(&self) -> MutexIrqSafeGuard<T>
     {
-        MutexIrqSafeGuard
-        {
-            held_irq: ManuallyDrop::new(hold_interrupts()),
-            guard: ManuallyDrop::new(self.lock.lock())
+        loop {
+            match self.try_lock() {
+                Some(guard) => return guard,
+                _ => {}
+            }
         }
     }
 
