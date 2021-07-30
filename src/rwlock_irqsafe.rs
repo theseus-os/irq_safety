@@ -18,8 +18,7 @@ pub struct RwLockIrqSafe<T: ?Sized> {
 ///
 /// When the guard falls out of scope it will decrement the read count,
 /// potentially releasing the lock and potentially re-enabling interrupts.
-pub struct RwLockIrqSafeReadGuard<'a, T: 'a + ?Sized>
-{
+pub struct RwLockIrqSafeReadGuard<'a, T: 'a + ?Sized> {
     held_irq: ManuallyDrop<HeldInterrupts>,
     guard: ManuallyDrop<RwLockReadGuard<'a, T>>,
 }
@@ -27,8 +26,7 @@ pub struct RwLockIrqSafeReadGuard<'a, T: 'a + ?Sized>
 /// A guard to which the protected data can be written
 ///
 /// When the guard falls out of scope it will release the lock and potentially re-enable interrupts.
-pub struct RwLockIrqSafeWriteGuard<'a, T: 'a + ?Sized>
-{
+pub struct RwLockIrqSafeWriteGuard<'a, T: 'a + ?Sized> {
     held_irq: ManuallyDrop<HeldInterrupts>,
     guard: ManuallyDrop<RwLockWriteGuard<'a, T>>,
 }
@@ -38,8 +36,7 @@ unsafe impl<T: ?Sized + Send + Sync> Send for RwLockIrqSafe<T> {}
 unsafe impl<T: ?Sized + Send + Sync> Sync for RwLockIrqSafe<T> {}
 
 
-impl<T> RwLockIrqSafe<T>
-{
+impl<T> RwLockIrqSafe<T> {
     /// Creates a new spinlock wrapping the supplied data.
     ///
     /// May be used statically:
@@ -54,23 +51,19 @@ impl<T> RwLockIrqSafe<T>
     /// }
     /// ```
     #[inline]
-    pub const fn new(user_data: T) -> RwLockIrqSafe<T>
-    {
-        RwLockIrqSafe
-        {
+    pub const fn new(user_data: T) -> RwLockIrqSafe<T> {
+        RwLockIrqSafe {
             rwlock: RwLock::new(user_data),
         }
     }
 
     /// Consumes this `RwLockIrqSafe`, returning the underlying data.
-    pub fn into_inner(self) -> T
-    {
+    pub fn into_inner(self) -> T {
         self.rwlock.into_inner()
     }
 }
 
-impl<T: ?Sized> RwLockIrqSafe<T>
-{
+impl<T: ?Sized> RwLockIrqSafe<T> {
     /// Locks this RwLockIrqSafe with shared read access, blocking the current thread
     /// until it can be acquired.
     ///
@@ -84,7 +77,7 @@ impl<T: ?Sized> RwLockIrqSafe<T>
     /// once it is dropped, along with restoring interrupts. 
     ///
     /// ```
-    /// let mylock = RwLockIrqSafe::new(0);
+    /// let mylock = irq_safety::RwLockIrqSafe::new(0);
     /// {
     ///     let mut data = mylock.read();
     ///     // The lock is now locked, interrupts are disabled, and the data can be read
@@ -93,11 +86,12 @@ impl<T: ?Sized> RwLockIrqSafe<T>
     /// }
     /// ```
     #[inline]
-    pub fn read<'a>(&'a self) -> RwLockIrqSafeReadGuard<'a, T>
-    {
-        RwLockIrqSafeReadGuard {
-            held_irq: ManuallyDrop::new(hold_interrupts()),
-            guard:  ManuallyDrop::new(self.rwlock.read()),
+    pub fn read<'a>(&'a self) -> RwLockIrqSafeReadGuard<'a, T> {
+        loop {
+            match self.try_read() {
+                Some(guard) => return guard,
+                _ => {}
+            }
         }
     }
 
@@ -111,7 +105,7 @@ impl<T: ?Sized> RwLockIrqSafe<T>
     /// or writers will acquire the lock first.
     ///
     /// ```
-    /// let mylock = irq_safety::RwLock::new(0);
+    /// let mylock = irq_safety::RwLockIrqSafe::new(0);
     /// {
     ///     match mylock.try_read() {
     ///         Some(data) => {
@@ -124,19 +118,35 @@ impl<T: ?Sized> RwLockIrqSafe<T>
     /// }
     /// ```
     #[inline]
-    pub fn try_read(&self) -> Option<RwLockIrqSafeReadGuard<T>>
-    {   
-        match self.rwlock.try_read() {
-            None => None,
-            success => {
-                Some(
-                    RwLockIrqSafeReadGuard {
-                        held_irq: ManuallyDrop::new(hold_interrupts()),
-                        guard: ManuallyDrop::new(success.unwrap()),
-                    }
-                )
-            }
-        }
+    pub fn try_read(&self) -> Option<RwLockIrqSafeReadGuard<T>> {
+        if self.rwlock.writer_count() > 0 { return None; }
+        let held_irq = hold_interrupts();
+        self.rwlock.try_read().map(|guard| RwLockIrqSafeReadGuard {
+            held_irq: ManuallyDrop::new(held_irq),
+            guard: ManuallyDrop::new(guard),
+        })
+    }
+
+    /// Return the number of readers that currently hold the lock (including upgradable readers).
+    ///
+    /// # Safety
+    ///
+    /// This function provides no synchronization guarantees and so its result should be considered 'out of date'
+    /// the instant it is called. Do not use it for synchronization purposes. However, it may be useful as a heuristic.
+    pub fn reader_count(&self) -> usize {
+        self.rwlock.reader_count()
+    }
+
+    /// Return the number of writers that currently hold the lock.
+    ///
+    /// Because [`RwLockIrqSafe`] guarantees exclusive mutable access, this function may only return either `0` or `1`.
+    ///
+    /// # Safety
+    ///
+    /// This function provides no synchronization guarantees and so its result should be considered 'out of date'
+    /// the instant it is called. Do not use it for synchronization purposes. However, it may be useful as a heuristic.
+    pub fn writer_count(&self) -> usize {
+        self.rwlock.writer_count()
     }
 
     /// Force decrement the reader count.
@@ -168,7 +178,7 @@ impl<T: ?Sized> RwLockIrqSafe<T>
     /// when dropped.
     ///
     /// ```
-    /// let mylock = irq_safety::RwLock::new(0);
+    /// let mylock = irq_safety::RwLockIrqSafe::new(0);
     /// {
     ///     let mut data = mylock.write();
     ///     // The lock is now locked and the data can be written
@@ -177,11 +187,12 @@ impl<T: ?Sized> RwLockIrqSafe<T>
     /// }
     /// ```
     #[inline]
-    pub fn write<'a>(&'a self) -> RwLockIrqSafeWriteGuard<'a, T>
-    {
-        RwLockIrqSafeWriteGuard {
-            held_irq: ManuallyDrop::new(hold_interrupts()),
-            guard:  ManuallyDrop::new(self.rwlock.write()),
+    pub fn write<'a>(&'a self) -> RwLockIrqSafeWriteGuard<'a, T> {
+        loop {
+            match self.try_write() {
+                Some(guard) => return guard,
+                _ => {}
+            }
         }
     }
 
@@ -192,7 +203,7 @@ impl<T: ?Sized> RwLockIrqSafe<T>
     /// returned.
     ///
     /// ```
-    /// let mylock = irq_safety::RwLock::new(0);
+    /// let mylock = irq_safety::RwLockIrqSafe::new(0);
     /// {
     ///     match mylock.try_write() {
     ///         Some(mut data) => {
@@ -205,29 +216,20 @@ impl<T: ?Sized> RwLockIrqSafe<T>
     /// }
     /// ```
     #[inline]
-    pub fn try_write(&self) -> Option<RwLockIrqSafeWriteGuard<T>>
-    {
-        match self.rwlock.try_write() {
-            None => None,
-            success => {
-                Some(
-                    RwLockIrqSafeWriteGuard {
-                        held_irq: ManuallyDrop::new(hold_interrupts()),
-                        guard: ManuallyDrop::new(success.unwrap()),
-                    }
-                )
-            }
-        }
+    pub fn try_write(&self) -> Option<RwLockIrqSafeWriteGuard<T>> {
+        if self.rwlock.writer_count() > 0 { return None; }
+        let held_irq = hold_interrupts();
+        self.rwlock.try_write().map(|guard| RwLockIrqSafeWriteGuard {
+            held_irq: ManuallyDrop::new(held_irq),
+            guard: ManuallyDrop::new(guard),
+        })
     }
 
 }
 
-impl<T: ?Sized + fmt::Debug> fmt::Debug for RwLockIrqSafe<T>
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        match self.rwlock.try_read()
-        {
+impl<T: ?Sized + fmt::Debug> fmt::Debug for RwLockIrqSafe<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.rwlock.try_read() {
             Some(guard) => write!(f, "RwLockIrqSafe {{ data: {:?} }}", &*guard),
             None => write!(f, "RwLockIrqSafe {{ <locked> }}"),
         }
