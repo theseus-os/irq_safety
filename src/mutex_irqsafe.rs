@@ -14,10 +14,10 @@ use owning_ref::{OwningRef, OwningRefMut};
 ///
 /// # Description
 ///
-/// This structure behaves a lot like a normal MutexIrqSafe. There are some differences:
+/// This structure behaves a lot like a normal Mutex. There are some differences:
 ///
 /// - It may be used outside the runtime.
-///   - A normal MutexIrqSafe will fail when used without the runtime, this will just lock
+///   - A normal Mutex will fail when used without the runtime, this will just lock
 ///   - When the runtime is present, it will call the deschedule function when appropriate
 /// - No lock poisoning. When a fail occurs when the lock is held, no guarantees are made
 ///
@@ -79,16 +79,14 @@ use owning_ref::{OwningRef, OwningRefMut};
 /// let answer = { *spin_mutex.lock() };
 /// assert_eq!(answer, numthreads);
 /// ```
-pub struct MutexIrqSafe<T: ?Sized>
-{
+pub struct MutexIrqSafe<T: ?Sized> {
     lock: Mutex<T>,
 }
 
 /// A guard to which the protected data can be accessed
 ///
 /// When the guard falls out of scope it will release the lock.
-pub struct MutexIrqSafeGuard<'a, T: ?Sized + 'a>
-{
+pub struct MutexIrqSafeGuard<'a, T: ?Sized + 'a> {
     held_irq: ManuallyDrop<HeldInterrupts>,
     guard: ManuallyDrop<MutexGuard<'a, T>>, 
 }
@@ -97,8 +95,7 @@ pub struct MutexIrqSafeGuard<'a, T: ?Sized + 'a>
 unsafe impl<T: ?Sized + Send> Sync for MutexIrqSafe<T> {}
 unsafe impl<T: ?Sized + Send> Send for MutexIrqSafe<T> {}
 
-impl<T> MutexIrqSafe<T>
-{
+impl<T> MutexIrqSafe<T> {
     /// Creates a new spinlock wrapping the supplied data.
     ///
     /// May be used statically:
@@ -114,34 +111,20 @@ impl<T> MutexIrqSafe<T>
     ///     drop(lock);
     /// }
     /// ```
-    pub const fn new(user_data: T) -> MutexIrqSafe<T>
-    {
-        MutexIrqSafe
-        {
+    pub const fn new(user_data: T) -> MutexIrqSafe<T> {
+        MutexIrqSafe {
             lock: Mutex::new(user_data),
         }
     }
 
     /// Consumes this MutexIrqSafe, returning the underlying data.
+    #[inline(always)]
     pub fn into_inner(self) -> T {
         self.lock.into_inner()
     }
 }
 
-impl<T: ?Sized> MutexIrqSafe<T>
-{
-    // fn obtain_lock(&self)
-    // {
-    //     while self.lock.compare_and_swap(false, true, Ordering::Acquire) != false
-    //     {
-    //         // Wait until the lock looks unlocked before retrying
-    //         while self.lock.load(Ordering::Relaxed)
-    //         {
-    //             cpu_relax();
-    //         }
-    //     }
-    // }
-
+impl<T: ?Sized> MutexIrqSafe<T> {
     /// Locks the spinlock and returns a guard.
     ///
     /// The returned value may be dereferenced for data access
@@ -157,14 +140,25 @@ impl<T: ?Sized> MutexIrqSafe<T>
     /// }
     ///
     /// ```
-    pub fn lock(&self) -> MutexIrqSafeGuard<T>
-    {
+    #[inline(always)]
+    pub fn lock(&self) -> MutexIrqSafeGuard<T> {
         loop {
             match self.try_lock() {
                 Some(guard) => return guard,
                 _ => {}
             }
         }
+    }
+
+    /// Returns `true` if the lock is currently held.
+    ///
+    /// # Safety
+    ///
+    /// This function provides no synchronization guarantees and so its result should be considered 'out of date'
+    /// the instant it is called. Do not use it for synchronization purposes. However, it may be useful as a heuristic.
+    #[inline(always)]
+    pub fn is_locked(&self) -> bool {
+        self.lock.is_locked()
     }
 
     /// Force unlock the spinlock.
@@ -180,8 +174,8 @@ impl<T: ?Sized> MutexIrqSafe<T>
 
     /// Tries to lock the MutexIrqSafe. If it is already locked, it will return None. Otherwise it returns
     /// a guard within Some.
-    pub fn try_lock(&self) -> Option<MutexIrqSafeGuard<T>>
-    {
+    #[inline(always)]
+    pub fn try_lock(&self) -> Option<MutexIrqSafeGuard<T>> {
         if self.lock.is_locked() { return None; }
         let held_irq = hold_interrupts();
         self.lock.try_lock().map(|guard| MutexIrqSafeGuard {
@@ -190,14 +184,28 @@ impl<T: ?Sized> MutexIrqSafe<T>
         })
     }
 
+    /// Returns a mutable reference to the underlying data.
+    ///
+    /// Since this call borrows the [`MutexIrqSafe`] mutably, and a mutable reference is guaranteed to be exclusive in Rust,
+    /// no actual locking needs to take place -- the mutable borrow statically guarantees no locks exist. As such,
+    /// this is a 'zero-cost' operation.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut lock = irq_safety::MutexIrqSafe::new(0);
+    /// *lock.get_mut() = 10;
+    /// assert_eq!(*lock.lock(), 10);
+    /// ```
+    #[inline(always)]
+    pub fn get_mut(&mut self) -> &mut T {
+        self.lock.get_mut()
+    }
 }
 
-impl<T: ?Sized + fmt::Debug> fmt::Debug for MutexIrqSafe<T>
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        match self.lock.try_lock()
-        {
+impl<T: ?Sized + fmt::Debug> fmt::Debug for MutexIrqSafe<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.lock.try_lock() {
             Some(guard) => write!(f, "MutexIrqSafe {{ data: {:?} }}", &*guard),
             None => write!(f, "MutexIrqSafe {{ <locked> }}"),
         }
@@ -210,8 +218,7 @@ impl<T: ?Sized + Default> Default for MutexIrqSafe<T> {
     }
 }
 
-impl<'a, T: ?Sized> Deref for MutexIrqSafeGuard<'a, T>
-{
+impl<'a, T: ?Sized> Deref for MutexIrqSafeGuard<'a, T> {
     type Target = T;
 
     fn deref<'b>(&'b self) -> &'b T { 
@@ -219,8 +226,7 @@ impl<'a, T: ?Sized> Deref for MutexIrqSafeGuard<'a, T>
     }
 }
 
-impl<'a, T: ?Sized> DerefMut for MutexIrqSafeGuard<'a, T>
-{
+impl<'a, T: ?Sized> DerefMut for MutexIrqSafeGuard<'a, T> {
     fn deref_mut<'b>(&'b mut self) -> &'b mut T { 
         &mut *(self.guard)
     }
@@ -229,8 +235,7 @@ impl<'a, T: ?Sized> DerefMut for MutexIrqSafeGuard<'a, T>
 
 // NOTE: we need explicit calls to .drop() to ensure that HeldInterrupts are not released 
 //       until the inner lock is also released.
-impl<'a, T: ?Sized> Drop for MutexIrqSafeGuard<'a, T>
-{
+impl<'a, T: ?Sized> Drop for MutexIrqSafeGuard<'a, T> {
     /// The dropping of the MutexIrqSafeGuard will release the lock it was created from.
     fn drop(&mut self) {
         unsafe {
