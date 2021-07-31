@@ -217,7 +217,9 @@ impl<T: ?Sized> RwLockIrqSafe<T> {
     /// ```
     #[inline]
     pub fn try_write(&self) -> Option<RwLockIrqSafeWriteGuard<T>> {
-        if self.rwlock.writer_count() > 0 { return None; }
+        if self.rwlock.writer_count() > 0 || self.rwlock.reader_count() > 0 {
+            return None;
+        }
         let held_irq = hold_interrupts();
         self.rwlock.try_write().map(|guard| RwLockIrqSafeWriteGuard {
             held_irq: ManuallyDrop::new(held_irq),
