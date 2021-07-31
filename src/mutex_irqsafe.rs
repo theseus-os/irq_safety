@@ -186,7 +186,7 @@ impl<T: ?Sized> MutexIrqSafe<T> {
 
     /// Returns a mutable reference to the underlying data.
     ///
-    /// Since this call borrows the [`Mutex`] mutably, and a mutable reference is guaranteed to be exclusive in Rust,
+    /// Since this call borrows the [`MutexIrqSafe`] mutably, and a mutable reference is guaranteed to be exclusive in Rust,
     /// no actual locking needs to take place -- the mutable borrow statically guarantees no locks exist. As such,
     /// this is a 'zero-cost' operation.
     ///

@@ -225,6 +225,23 @@ impl<T: ?Sized> RwLockIrqSafe<T> {
         })
     }
 
+    /// Returns a mutable reference to the underlying data.
+    ///
+    /// Since this call borrows the [`RwLockIrqSafe`] mutably, and a mutable reference is guaranteed to be exclusive in Rust,
+    /// no actual locking needs to take place -- the mutable borrow statically guarantees no locks exist. As such,
+    /// this is a 'zero-cost' operation.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut lock = irq_safety::RwLockIrqSafe::new(0);
+    /// *lock.get_mut() = 10;
+    /// assert_eq!(*lock.lock(), 10);
+    /// ```
+    #[inline(always)]
+    pub fn get_mut(&mut self) -> &mut T {
+        self.rwlock.get_mut()
+    }
 }
 
 impl<T: ?Sized + fmt::Debug> fmt::Debug for RwLockIrqSafe<T> {
