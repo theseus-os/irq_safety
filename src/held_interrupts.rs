@@ -1,5 +1,10 @@
 // Inspired by Tifflin OS
 
+#[cfg(any(target_arch="arm"))]
+extern crate cortex_m;
+
+#[cfg(any(target_arch="arm"))]
+use self::cortex_m::{interrupt, register};
 
 /// A handle for frozen interrupts
 #[derive(Default)]
@@ -37,7 +42,9 @@ pub fn enable_interrupts() {
 
     #[cfg(any(target_arch="aarch64"))]
     unsafe { llvm_asm!("cpsie i" : : : "memory" : "volatile"); }
-    
+
+    #[cfg(any(target_arch="arm"))]
+    unsafe { interrupt::enable(); }
 }
 
 
@@ -48,6 +55,9 @@ pub fn disable_interrupts() {
 
     #[cfg(any(target_arch="aarch64"))]
     unsafe { llvm_asm!("cpsid i" : : : "memory" : "volatile"); }
+
+    #[cfg(any(target_arch="arm"))]
+    interrupt::disable();
 }
 
 
@@ -68,4 +78,6 @@ pub fn interrupts_enabled() -> bool {
         primask == 0
     }
 
+    #[cfg(any(target_arch="arm"))]
+    register::primask::read().is_active()
 }

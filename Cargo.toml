@@ -20,3 +20,7 @@ features = [ "alloc", "spin" ]
 
 [dependencies.owning_ref]
 git = "https://github.com/theseus-os/owning-ref-rs.git"
+
+[target.'cfg(target_arch = "arm")'.dependencies.cortex-m]
+features = ["inline-asm"]
+version = "0.7.2"
