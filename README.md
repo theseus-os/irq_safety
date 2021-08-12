@@ -8,4 +8,14 @@ with the added behavior of holding interrupts for the duration of the Mutex guar
 When the lock guard is dropped (falls out of scope), interrupts are re-enabled 
 if and only if they were enabled when the lock was obtained. 
 
-Also provides a interrupt holding feature without locking, if desired. Interrupt safety is achieved simply by disabling interrupts, which currently works for x86 architectures only. 
+Also provides a interrupt "holding" feature without locking, see the `HeldInterrupts` type. 
+
+This crate is designed for `no_std` usage within an OS kernel or in an embedded context. 
+
+Supported architectures:
+* `x86`
+* `x86_64`
+* `aarch64`
+* `arm`
+
+We welcome contributions from anyone, especially for new architectures. 
