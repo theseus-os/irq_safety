@@ -6,7 +6,7 @@ use core::default::Default;
 use core::mem::ManuallyDrop;
 
 use spin::{Mutex, MutexGuard};
-use held_interrupts::{HeldInterrupts, hold_interrupts};
+use crate::held_interrupts::{HeldInterrupts, hold_interrupts};
 use stable_deref_trait::StableDeref;
 use owning_ref::{OwningRef, OwningRefMut};
 

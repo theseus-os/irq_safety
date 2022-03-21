@@ -6,6 +6,8 @@ extern crate cortex_m;
 #[cfg(any(target_arch="arm"))]
 use self::cortex_m::{interrupt, register};
 
+use core::arch::asm;
+
 /// A handle for frozen interrupts
 #[derive(Default)]
 pub struct HeldInterrupts(bool);
@@ -21,9 +23,8 @@ pub fn hold_interrupts() -> HeldInterrupts {
 }
 
 
-impl ::core::ops::Drop for HeldInterrupts {
-	fn drop(&mut self)
-	{
+impl Drop for HeldInterrupts {
+	fn drop(&mut self) {
         // trace!("hold_interrupts(): enabling interrupts? {}", self.0);
 		if self.0 {
 			enable_interrupts();
@@ -38,10 +39,10 @@ impl ::core::ops::Drop for HeldInterrupts {
 #[inline(always)]
 pub fn enable_interrupts() {
     #[cfg(any(target_arch="x86", target_arch="x86_64"))]
-    unsafe { llvm_asm!("sti" : : : "memory" : "volatile"); }
+    unsafe { asm!("sti", options(nomem, nostack)); }
 
     #[cfg(any(target_arch="aarch64"))]
-    unsafe { llvm_asm!("cpsie i" : : : "memory" : "volatile"); }
+    unsafe { asm!("cpsie i", options(nomem, nostack)); }
 
     #[cfg(any(target_arch="arm"))]
     unsafe { interrupt::enable(); }
@@ -51,10 +52,10 @@ pub fn enable_interrupts() {
 #[inline(always)]
 pub fn disable_interrupts() {
     #[cfg(any(target_arch="x86", target_arch="x86_64"))]
-    unsafe { llvm_asm!("cli" : : : "memory" : "volatile"); }
+    unsafe { asm!("cli", options(nomem, nostack)); }
 
     #[cfg(any(target_arch="aarch64"))]
-    unsafe { llvm_asm!("cpsid i" : : : "memory" : "volatile"); }
+    unsafe { asm!("cpsid i", options(nomem, nostack)); }
 
     #[cfg(any(target_arch="arm"))]
     interrupt::disable();
@@ -67,14 +68,14 @@ pub fn interrupts_enabled() -> bool {
     unsafe { 
         // we only need the lower 16 bits of the eflags/rflags register
         let flags: usize;
-		llvm_asm!("pushf; pop $0" : "=r" (flags) : : "memory" : "volatile");
+        asm!("pushfq; pop {}", out(reg) flags, options(nomem, preserves_flags));
 		(flags & 0x0200) != 0
      }
 
     #[cfg(any(target_arch="aarch64"))]
     unsafe {
-        let primask:usize;  
-        llvm_asm!("mrs $0, PRIMASK" : "=r"(primask) : : : "volatile");
+        let primask: usize;  
+        asm!("mrs {}, PRIMASK", out(reg) primask, options(nomem, preserves_flags));
         primask == 0
     }
 

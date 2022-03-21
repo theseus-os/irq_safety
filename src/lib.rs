@@ -3,7 +3,6 @@
 //! Mutex and RwLock, with the added behavior of holding interrupts
 //! for the duration of the Mutex guard. 
 
-#![feature(llvm_asm)]
 #![no_std]
 
 extern crate spin;
