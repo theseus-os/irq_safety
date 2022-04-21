@@ -32,7 +32,7 @@ pub struct RwLockIrqSafeWriteGuard<'a, T: 'a + ?Sized> {
 }
 
 // Same unsafe impls as `std::sync::RwLock`
-unsafe impl<T: ?Sized + Send + Sync> Send for RwLockIrqSafe<T> {}
+unsafe impl<T: ?Sized + Send> Send for RwLockIrqSafe<T> {}
 unsafe impl<T: ?Sized + Send + Sync> Sync for RwLockIrqSafe<T> {}
 
 
