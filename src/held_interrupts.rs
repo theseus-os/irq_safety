@@ -41,6 +41,7 @@ pub fn enable_interrupts() {
     {
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
         unsafe {
+            // Clear the i and f bits.
             asm!("msr daifclr, #3", options(nomem, nostack, preserves_flags));
         };
     }
@@ -57,6 +58,7 @@ pub fn disable_interrupts() {
     #[cfg(any(target_arch = "aarch64"))]
     {
         unsafe {
+            // Set the i and f bits.
             asm!("msr daifset, #3", options(nomem, nostack, preserves_flags));
         };
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
@@ -80,6 +82,8 @@ pub fn interrupts_enabled() -> bool {
     unsafe {
         let daif: usize;
         asm!("mrs {}, daif", out(reg) daif, options(nomem, preserves_flags));
+        // The flags are stored in bits 7-10. We only care about i and f,
+        // stored in bits 7 and 8.
         daif >> 6 & 0x3 == 0
     }
 
