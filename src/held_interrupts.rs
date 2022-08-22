@@ -35,7 +35,10 @@ impl Drop for HeldInterrupts {
 #[inline(always)]
 pub fn enable_interrupts() {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    unsafe { asm!("sti", options(nomem, nostack)); }
+    {
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+        unsafe { asm!("sti", options(nomem, nostack)); }
+    }
 
     #[cfg(any(target_arch = "aarch64"))]
     {
@@ -53,7 +56,10 @@ pub fn enable_interrupts() {
 #[inline(always)]
 pub fn disable_interrupts() {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    unsafe { asm!("cli", options(nomem, nostack)); }
+    {
+        unsafe { asm!("cli", options(nomem, nostack)) };
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    }
 
     #[cfg(any(target_arch = "aarch64"))]
     {
