@@ -51,9 +51,9 @@ impl<T> RwLockIrqSafe<T> {
     /// }
     /// ```
     #[inline]
-    pub const fn new(user_data: T) -> RwLockIrqSafe<T> {
+    pub const fn new(data: T) -> RwLockIrqSafe<T> {
         RwLockIrqSafe {
-            rwlock: RwLock::new(user_data),
+            rwlock: RwLock::new(data),
         }
     }
 

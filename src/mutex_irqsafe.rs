@@ -111,9 +111,9 @@ impl<T> MutexIrqSafe<T> {
     ///     drop(lock);
     /// }
     /// ```
-    pub const fn new(user_data: T) -> MutexIrqSafe<T> {
+    pub const fn new(data: T) -> MutexIrqSafe<T> {
         MutexIrqSafe {
-            lock: Mutex::new(user_data),
+            lock: Mutex::new(data),
         }
     }
 
