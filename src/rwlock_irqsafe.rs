@@ -1,8 +1,4 @@
-use core::ops::{Deref, DerefMut};
-use core::fmt;
-use core::default::Default;
-use core::mem::ManuallyDrop;
-
+use core::{fmt, ops::{Deref, DerefMut}};
 use spin::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::held_interrupts::{HeldInterrupts, hold_interrupts};
 use stable_deref_trait::StableDeref;
@@ -19,16 +15,20 @@ pub struct RwLockIrqSafe<T: ?Sized> {
 /// When the guard falls out of scope it will decrement the read count,
 /// potentially releasing the lock and potentially re-enabling interrupts.
 pub struct RwLockIrqSafeReadGuard<'a, T: 'a + ?Sized> {
-    held_irq: ManuallyDrop<HeldInterrupts>,
-    guard: ManuallyDrop<RwLockReadGuard<'a, T>>,
+    guard: RwLockReadGuard<'a, T>,
+    // `_held_irq` will be dropped after `guard`.
+    // Rust guarantees that fields are dropped in the order of declaration.
+    _held_irq: HeldInterrupts,
 }
 
 /// A guard to which the protected data can be written
 ///
 /// When the guard falls out of scope it will release the lock and potentially re-enable interrupts.
 pub struct RwLockIrqSafeWriteGuard<'a, T: 'a + ?Sized> {
-    held_irq: ManuallyDrop<HeldInterrupts>,
-    guard: ManuallyDrop<RwLockWriteGuard<'a, T>>,
+    guard: RwLockWriteGuard<'a, T>,
+    // `_held_irq` will be dropped after `guard`.
+    // Rust guarantees that fields are dropped in the order of declaration.
+    _held_irq: HeldInterrupts,
 }
 
 // Same unsafe impls as `std::sync::RwLock`
@@ -120,10 +120,10 @@ impl<T: ?Sized> RwLockIrqSafe<T> {
     #[inline]
     pub fn try_read(&self) -> Option<RwLockIrqSafeReadGuard<T>> {
         if self.rwlock.writer_count() > 0 { return None; }
-        let held_irq = hold_interrupts();
+        let _held_irq = hold_interrupts();
         self.rwlock.try_read().map(|guard| RwLockIrqSafeReadGuard {
-            held_irq: ManuallyDrop::new(held_irq),
-            guard: ManuallyDrop::new(guard),
+            guard,
+            _held_irq,
         })
     }
 
@@ -220,10 +220,10 @@ impl<T: ?Sized> RwLockIrqSafe<T> {
         if self.rwlock.writer_count() > 0 || self.rwlock.reader_count() > 0 {
             return None;
         }
-        let held_irq = hold_interrupts();
+        let _held_irq = hold_interrupts();
         self.rwlock.try_write().map(|guard| RwLockIrqSafeWriteGuard {
-            held_irq: ManuallyDrop::new(held_irq),
-            guard: ManuallyDrop::new(guard),
+            guard,
+            _held_irq,
         })
     }
 
@@ -280,27 +280,6 @@ impl<'rwlock, T: ?Sized> Deref for RwLockIrqSafeWriteGuard<'rwlock, T> {
 impl<'rwlock, T: ?Sized> DerefMut for RwLockIrqSafeWriteGuard<'rwlock, T> {
     fn deref_mut(&mut self) -> &mut T { 
         &mut *(self.guard)
-    }
-}
-
-
-// NOTE: we need explicit calls to .drop() to ensure that HeldInterrupts are not released 
-//       until the inner lock is also released.
-impl<'rwlock, T: ?Sized> Drop for RwLockIrqSafeReadGuard<'rwlock, T> {
-    fn drop(&mut self) {
-        unsafe {
-            ManuallyDrop::drop(&mut self.guard);
-            ManuallyDrop::drop(&mut self.held_irq);
-        }
-    }
-}
-
-impl<'rwlock, T: ?Sized> Drop for RwLockIrqSafeWriteGuard<'rwlock, T> {
-    fn drop(&mut self) {
-        unsafe {
-            ManuallyDrop::drop(&mut self.guard);
-            ManuallyDrop::drop(&mut self.held_irq);
-        }
     }
 }
 

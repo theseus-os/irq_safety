@@ -1,10 +1,4 @@
-use core::marker::Sync;
-use core::ops::{Drop, Deref, DerefMut};
-use core::fmt;
-use core::option::Option::{self, None, Some};
-use core::default::Default;
-use core::mem::ManuallyDrop;
-
+use core::{fmt, ops::{Deref, DerefMut}};
 use spin::{Mutex, MutexGuard};
 use crate::held_interrupts::{HeldInterrupts, hold_interrupts};
 use stable_deref_trait::StableDeref;
@@ -87,8 +81,10 @@ pub struct MutexIrqSafe<T: ?Sized> {
 ///
 /// When the guard falls out of scope it will release the lock.
 pub struct MutexIrqSafeGuard<'a, T: ?Sized + 'a> {
-    held_irq: ManuallyDrop<HeldInterrupts>,
-    guard: ManuallyDrop<MutexGuard<'a, T>>, 
+    guard: MutexGuard<'a, T>,
+    // `_held_irq` will be dropped after `guard`.
+    // Rust guarantees that fields are dropped in the order of declaration.
+    _held_irq: HeldInterrupts,
 }
 
 // Same unsafe impls as `std::sync::MutexIrqSafe`
@@ -177,10 +173,10 @@ impl<T: ?Sized> MutexIrqSafe<T> {
     #[inline(always)]
     pub fn try_lock(&self) -> Option<MutexIrqSafeGuard<T>> {
         if self.lock.is_locked() { return None; }
-        let held_irq = hold_interrupts();
+        let _held_irq = hold_interrupts();
         self.lock.try_lock().map(|guard| MutexIrqSafeGuard {
-            held_irq: ManuallyDrop::new(held_irq),
-            guard: ManuallyDrop::new(guard),
+            guard,
+            _held_irq,
         })
     }
 
@@ -229,19 +225,6 @@ impl<'a, T: ?Sized> Deref for MutexIrqSafeGuard<'a, T> {
 impl<'a, T: ?Sized> DerefMut for MutexIrqSafeGuard<'a, T> {
     fn deref_mut<'b>(&'b mut self) -> &'b mut T { 
         &mut *(self.guard)
-    }
-}
-
-
-// NOTE: we need explicit calls to .drop() to ensure that HeldInterrupts are not released 
-//       until the inner lock is also released.
-impl<'a, T: ?Sized> Drop for MutexIrqSafeGuard<'a, T> {
-    /// The dropping of the MutexIrqSafeGuard will release the lock it was created from.
-    fn drop(&mut self) {
-        unsafe {
-            ManuallyDrop::drop(&mut self.guard);
-            ManuallyDrop::drop(&mut self.held_irq);
-        }
     }
 }
 
