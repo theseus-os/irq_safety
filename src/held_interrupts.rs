@@ -9,6 +9,8 @@ use core::{
 #[derive(Default)]
 pub struct HeldInterrupts(bool);
 
+impl !Send for HeldInterrupts {}
+
 /// Prevent interrupts from firing until the return value is dropped (goes out of scope).
 /// After it is dropped, the interrupts are returned to their prior state, not blindly re-enabled.
 pub fn hold_interrupts() -> HeldInterrupts {

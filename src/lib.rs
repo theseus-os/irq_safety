@@ -11,6 +11,8 @@
 //! Both of these types implement the [`stable_deref_trait::StableDeref`] trait,
 //! allowing them to be used with crates like `owning_ref`.
 
+#![feature(negative_impls)]
+
 #![no_std]
 
 extern crate spin;
