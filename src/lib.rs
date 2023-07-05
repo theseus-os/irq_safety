@@ -7,17 +7,12 @@
 //! * [ MutexIrqSafe`] and [`RwLockIrqSafe`]: spinlock wrappers that use [`spin::Mutex`]
 //!   and [`spin::RwLock`] internally to auto-disable interrupts for the duration of 
 //!   the lock being held.
-//! 
-//! Both of these types implement the [`stable_deref_trait::StableDeref`] trait,
-//! allowing them to be used with crates like `owning_ref`.
 
 #![feature(negative_impls)]
 
 #![no_std]
 
 extern crate spin;
-extern crate owning_ref;
-extern crate stable_deref_trait;
 
 pub use mutex_irqsafe::*;
 pub use rwlock_irqsafe::*;

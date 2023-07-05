@@ -1,8 +1,6 @@
 use core::{fmt, ops::{Deref, DerefMut}};
 use spin::{Mutex, MutexGuard};
 use crate::held_interrupts::{HeldInterrupts, hold_interrupts};
-use stable_deref_trait::StableDeref;
-use owning_ref::{OwningRef, OwningRefMut};
 
 /// This type provides interrupt-safe MUTual EXclusion based on [spin::Mutex].
 ///
@@ -227,11 +225,3 @@ impl<'a, T: ?Sized> DerefMut for MutexIrqSafeGuard<'a, T> {
         &mut *(self.guard)
     }
 }
-
-// Implement the StableDeref trait for MutexIrqSafe guards, just like it's implemented for Mutex guards
-unsafe impl<'a, T: ?Sized> StableDeref for MutexIrqSafeGuard<'a, T> {}
-
-/// Typedef of a owning reference that uses a `MutexIrqSafeGuard` as the owner.
-pub type MutexIrqSafeGuardRef<'a, T, U = T> = OwningRef<MutexIrqSafeGuard<'a, T>, U>;
-/// Typedef of a mutable owning reference that uses a `MutexIrqSafeGuard` as the owner.
-pub type MutexIrqSafeGuardRefMut<'a, T, U = T> = OwningRefMut<MutexIrqSafeGuard<'a, T>, U>;
