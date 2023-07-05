@@ -1,8 +1,6 @@
 use core::{fmt, ops::{Deref, DerefMut}};
 use spin::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::held_interrupts::{HeldInterrupts, hold_interrupts};
-use stable_deref_trait::StableDeref;
-use owning_ref::{OwningRef, OwningRefMut};
 
 /// A simple wrapper around a `RwLock` whose guards disable interrupts properly 
 pub struct RwLockIrqSafe<T: ?Sized> {
@@ -282,12 +280,3 @@ impl<'rwlock, T: ?Sized> DerefMut for RwLockIrqSafeWriteGuard<'rwlock, T> {
         &mut *(self.guard)
     }
 }
-
-// Implement the StableDeref trait for RwLockIrqSafe guards, just like it's implemented for RwLock guards
-unsafe impl<'a, T: ?Sized> StableDeref for RwLockIrqSafeReadGuard<'a, T> {}
-unsafe impl<'a, T: ?Sized> StableDeref for RwLockIrqSafeWriteGuard<'a, T> {}
-
-/// Typedef of a owning reference that uses a `RwLockIrqSafeReadGuard` as the owner.
-pub type RwLockIrqSafeReadGuardRef<'a, T, U = T> = OwningRef<RwLockIrqSafeReadGuard<'a, T>, U>;
-/// Typedef of a mutable owning reference that uses a `RwLockIrqSafeWriteGuard` as the owner.
-pub type RwLockIrqSafeWriteGuardRefMut<'a, T, U = T> = OwningRefMut<RwLockIrqSafeWriteGuard<'a, T>, U>;
