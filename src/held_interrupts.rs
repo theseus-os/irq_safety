@@ -79,7 +79,7 @@ pub fn interrupts_enabled() -> bool {
         asm!("mrs {}, daif", out(reg) daif, options(nomem, nostack, preserves_flags));
         // The flags are stored in bits 7-10. We only care about i and f,
         // stored in bits 7 and 8.
-        daif >> 6 & 0x3 == 0
+        daif >> 6 & 0x3 != 0
     }
 
     #[cfg(target_arch = "arm")]
