@@ -39,8 +39,8 @@ pub fn enable_interrupts() {
         asm!("sti", options(nomem, nostack));
 
         #[cfg(target_arch = "aarch64")]
-        // Clear the i and f bits.
-        asm!("msr daifclr, #3", options(nomem, nostack, preserves_flags));
+        // Clear the i bit.
+        asm!("msr daifclr, #2", options(nomem, nostack, preserves_flags));
 
         #[cfg(target_arch = "arm")]
         asm!("cpsie i", options(nomem, nostack, preserves_flags));
@@ -54,11 +54,31 @@ pub fn disable_interrupts() {
         asm!("cli", options(nomem, nostack));
 
         #[cfg(target_arch = "aarch64")]
-        // Set the i and f bits.
-        asm!("msr daifset, #3", options(nomem, nostack, preserves_flags));
+        // Set the i bit.
+        asm!("msr daifset, #2", options(nomem, nostack, preserves_flags));
 
         #[cfg(target_arch = "arm")]
         asm!("cpsid i", options(nomem, nostack, preserves_flags));
+    }
+    compiler_fence(Ordering::SeqCst);
+}
+
+#[inline(always)]
+#[cfg(target_arch = "aarch64")]
+pub fn enable_fast_interrupts() {
+    compiler_fence(Ordering::SeqCst);
+    unsafe {
+        // Clear the f bit.
+        asm!("msr daifclr, #1", options(nomem, nostack, preserves_flags));
+    }
+}
+
+#[inline(always)]
+#[cfg(target_arch = "aarch64")]
+pub fn disable_fast_interrupts() {
+    unsafe {
+        // Clear the f bit.
+        asm!("msr daifset, #1", options(nomem, nostack, preserves_flags));
     }
     compiler_fence(Ordering::SeqCst);
 }
@@ -77,9 +97,8 @@ pub fn interrupts_enabled() -> bool {
     unsafe {
         let daif: usize;
         asm!("mrs {}, daif", out(reg) daif, options(nomem, nostack, preserves_flags));
-        // The flags are stored in bits 7-10. We only care about i and f,
-        // stored in bits 7 and 8.
-        daif >> 6 & 0x3 == 0
+        // The flags are stored in bits 7-10. We only care about i, stored in bit 8.
+        (daif & (2 << 6)) == 0
     }
 
     #[cfg(target_arch = "arm")]
