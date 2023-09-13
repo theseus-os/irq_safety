@@ -13,6 +13,9 @@ impl !Send for HeldInterrupts {}
 
 /// Prevent interrupts from firing until the return value is dropped (goes out of scope).
 /// After it is dropped, the interrupts are returned to their prior state, not blindly re-enabled.
+///
+/// On aarch64, only IRQs (not FIQs) are prevented, as those are used as an alternative
+/// to NMIs, which are less commonly supported.
 pub fn hold_interrupts() -> HeldInterrupts {
     let enabled = interrupts_enabled();
     let retval = HeldInterrupts(enabled);
@@ -31,6 +34,9 @@ impl Drop for HeldInterrupts {
 }
 
 // Rust wrappers around the x86-family of interrupt-related instructions.
+//
+// On aarch64, only IRQs (not FIQs) are enabled; `enable_fast_interrupts`
+// should be used to enable those.
 #[inline(always)]
 pub fn enable_interrupts() {
     compiler_fence(Ordering::SeqCst);
@@ -47,6 +53,8 @@ pub fn enable_interrupts() {
     }
 }
 
+// On aarch64, only IRQs (not FIQs) are disabled; `disable_fast_interrupts`
+// should be used to enable those.
 #[inline(always)]
 pub fn disable_interrupts() {
     unsafe {
@@ -63,6 +71,11 @@ pub fn disable_interrupts() {
     compiler_fence(Ordering::SeqCst);
 }
 
+// Enables FIQs on aarch64.
+//
+// On aarch64, NMIs are only available as an extension, therefore
+// in Theseus we prefer to use FIQs, which are well supported, as
+// an alternative.
 #[inline(always)]
 #[cfg(target_arch = "aarch64")]
 pub fn enable_fast_interrupts() {
@@ -73,6 +86,11 @@ pub fn enable_fast_interrupts() {
     }
 }
 
+// Disables FIQs on aarch64.
+//
+// On aarch64, NMIs are only available as an extension, therefore
+// in Theseus we prefer to use FIQs, which are well supported, as
+// an alternative.
 #[inline(always)]
 #[cfg(target_arch = "aarch64")]
 pub fn disable_fast_interrupts() {
@@ -83,6 +101,7 @@ pub fn disable_fast_interrupts() {
     compiler_fence(Ordering::SeqCst);
 }
 
+// On aarch64, this only checks that IRQs (not FIQs) are enabled.
 #[inline(always)]
 pub fn interrupts_enabled() -> bool {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -98,7 +117,7 @@ pub fn interrupts_enabled() -> bool {
         let daif: usize;
         asm!("mrs {}, daif", out(reg) daif, options(nomem, nostack, preserves_flags));
         // The flags are stored in bits 7-10. We only care about i, stored in bit 8.
-        (daif & (2 << 6)) == 0
+        (daif & (1 << 7)) == 0
     }
 
     #[cfg(target_arch = "arm")]
