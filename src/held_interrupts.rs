@@ -1,18 +1,26 @@
-// Inspired by Tifflin OS
+// Originally inspired by Tifflin OS.
 
 use core::{
     arch::asm,
     sync::atomic::{compiler_fence, Ordering},
 };
 
-/// A handle for frozen interrupts
+/// A guard type for withholding regular interrupts on the current CPU.
+///
+/// When dropped, interrupts are returned to their prior state rather than
+/// just blindly re-enabled. For example, if interrupts were enabled
+/// when [`hold_interrupts()`] was invoked, interrupts will be re-enabled
+/// when this type is dropped.
 #[derive(Default)]
 pub struct HeldInterrupts(bool);
 
 impl !Send for HeldInterrupts {}
 
-/// Prevent interrupts from firing until the return value is dropped (goes out of scope).
-/// After it is dropped, the interrupts are returned to their prior state, not blindly re-enabled.
+/// Prevents regular interrupts from occurring until the returned
+/// `HeldInterrupts` object is dropped.
+///
+/// This function only affects *regular* IRQs;
+/// it does not affect NMIs or fast interrupts (FIQs on aarch64).
 pub fn hold_interrupts() -> HeldInterrupts {
     let enabled = interrupts_enabled();
     let retval = HeldInterrupts(enabled);
@@ -30,7 +38,11 @@ impl Drop for HeldInterrupts {
     }
 }
 
-// Rust wrappers around the x86-family of interrupt-related instructions.
+/// Unconditionally enables *regular* interrupts (IRQs),
+/// not NMIs or fast interrupts (FIQs on aarch64).
+///
+/// To enable fast interrupts (FIQs) on aarch64,
+/// use the [`enable_fast_interrupts()`] interrupts.
 #[inline(always)]
 pub fn enable_interrupts() {
     compiler_fence(Ordering::SeqCst);
@@ -39,14 +51,19 @@ pub fn enable_interrupts() {
         asm!("sti", options(nomem, nostack));
 
         #[cfg(target_arch = "aarch64")]
-        // Clear the i and f bits.
-        asm!("msr daifclr, #3", options(nomem, nostack, preserves_flags));
+        // Clear the I bit, which is bit 1 of the DAIF bitset.
+        asm!("msr daifclr, #2", options(nomem, nostack, preserves_flags));
 
         #[cfg(target_arch = "arm")]
         asm!("cpsie i", options(nomem, nostack, preserves_flags));
     }
 }
 
+/// Unconditionally disables *regular* interrupts (IRQs),
+/// not NMIs or fast interrupts (FIQs on aarch64).
+///
+/// To disable fast interrupts (FIQs) on aarch64,
+/// use the [`disable_fast_interrupts()`] interrupts.
 #[inline(always)]
 pub fn disable_interrupts() {
     unsafe {
@@ -54,8 +71,8 @@ pub fn disable_interrupts() {
         asm!("cli", options(nomem, nostack));
 
         #[cfg(target_arch = "aarch64")]
-        // Set the i and f bits.
-        asm!("msr daifset, #3", options(nomem, nostack, preserves_flags));
+        // Set the I bit, which is bit 1 of the DAIF bitset.
+        asm!("msr daifset, #2", options(nomem, nostack, preserves_flags));
 
         #[cfg(target_arch = "arm")]
         asm!("cpsid i", options(nomem, nostack, preserves_flags));
@@ -63,6 +80,38 @@ pub fn disable_interrupts() {
     compiler_fence(Ordering::SeqCst);
 }
 
+/// Unconditionally enables fast interrupts (FIQs); aarch64-only.
+///
+/// On aarch64, NMIs are only available as a hardware extension,
+/// therefore we only deal with FIQs here, which are widely supported.
+#[inline(always)]
+#[cfg(target_arch = "aarch64")]
+pub fn enable_fast_interrupts() {
+    compiler_fence(Ordering::SeqCst);
+    unsafe {
+        // Clear the F bit, which is bit 0 of the DAIF bitset.
+        asm!("msr daifclr, #1", options(nomem, nostack, preserves_flags));
+    }
+}
+
+/// Unconditionally disables fast interrupts (FIQs); aarch64-only.
+///
+/// On aarch64, NMIs are only available as a hardware extension,
+/// therefore we only deal with FIQs here, which are widely supported.
+#[inline(always)]
+#[cfg(target_arch = "aarch64")]
+pub fn disable_fast_interrupts() {
+    unsafe {
+        // Clear the F bit, which is bit 0 of the DAIF bitset.
+        asm!("msr daifset, #1", options(nomem, nostack, preserves_flags));
+    }
+    compiler_fence(Ordering::SeqCst);
+}
+
+/// Returns whether regular interrupts are enabled on the current CPU.
+///
+/// This only checks whether *regular* interrupts are enabled,
+/// not NMIs or fast interrupts (FIQs on aarch64).
 #[inline(always)]
 pub fn interrupts_enabled() -> bool {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -77,9 +126,8 @@ pub fn interrupts_enabled() -> bool {
     unsafe {
         let daif: usize;
         asm!("mrs {}, daif", out(reg) daif, options(nomem, nostack, preserves_flags));
-        // The flags are stored in bits 7-10. We only care about i and f,
-        // stored in bits 7 and 8.
-        daif >> 6 & 0x3 == 0
+        // PSTATE flags of interest are in bits [6:9]; we only care about I, stored in bit 7.
+        (daif & (1 << 7)) == 0
     }
 
     #[cfg(target_arch = "arm")]
