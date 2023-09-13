@@ -116,7 +116,7 @@ pub fn interrupts_enabled() -> bool {
     unsafe {
         let daif: usize;
         asm!("mrs {}, daif", out(reg) daif, options(nomem, nostack, preserves_flags));
-        // The flags are stored in bits 7-10. We only care about i, stored in bit 8.
+        // The flags are stored in bits 6, 7, 8, 9. We only care about i, stored in bit 7.
         (daif & (1 << 7)) == 0
     }
 
