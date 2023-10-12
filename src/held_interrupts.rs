@@ -1,9 +1,11 @@
 // Originally inspired by Tifflin OS.
 
-use core::{
-    arch::asm,
-    sync::atomic::{compiler_fence, Ordering},
-};
+// The assembly blocks intentionally omit the `nomem` option to prevent the
+// compiler from reordering memory accesses across the block.
+//
+// See https://github.com/mkroening/interrupt-ref-cell/issues/5#issuecomment-1753047784.
+
+use core::arch::asm;
 
 /// A guard type for withholding regular interrupts on the current CPU.
 ///
@@ -45,17 +47,16 @@ impl Drop for HeldInterrupts {
 /// use the [`enable_fast_interrupts()`] interrupts.
 #[inline(always)]
 pub fn enable_interrupts() {
-    compiler_fence(Ordering::SeqCst);
     unsafe {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        asm!("sti", options(nomem, nostack));
+        asm!("sti", options(nostack, preserves_flags));
 
         #[cfg(target_arch = "aarch64")]
         // Clear the I bit, which is bit 1 of the DAIF bitset.
-        asm!("msr daifclr, #2", options(nomem, nostack, preserves_flags));
+        asm!("msr daifclr, #2", options(nostack, preserves_flags));
 
         #[cfg(target_arch = "arm")]
-        asm!("cpsie i", options(nomem, nostack, preserves_flags));
+        asm!("cpsie i", options(nostack, preserves_flags));
     }
 }
 
@@ -68,16 +69,15 @@ pub fn enable_interrupts() {
 pub fn disable_interrupts() {
     unsafe {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        asm!("cli", options(nomem, nostack));
+        asm!("cli", options(nostack, preserves_flags));
 
         #[cfg(target_arch = "aarch64")]
         // Set the I bit, which is bit 1 of the DAIF bitset.
         asm!("msr daifset, #2", options(nomem, nostack, preserves_flags));
 
         #[cfg(target_arch = "arm")]
-        asm!("cpsid i", options(nomem, nostack, preserves_flags));
+        asm!("cpsid i", options(nostack, preserves_flags));
     }
-    compiler_fence(Ordering::SeqCst);
 }
 
 /// Unconditionally enables fast interrupts (FIQs); aarch64-only.
@@ -87,10 +87,9 @@ pub fn disable_interrupts() {
 #[inline(always)]
 #[cfg(target_arch = "aarch64")]
 pub fn enable_fast_interrupts() {
-    compiler_fence(Ordering::SeqCst);
     unsafe {
         // Clear the F bit, which is bit 0 of the DAIF bitset.
-        asm!("msr daifclr, #1", options(nomem, nostack, preserves_flags));
+        asm!("msr daifclr, #1", options(nostack, preserves_flags));
     }
 }
 
@@ -103,9 +102,8 @@ pub fn enable_fast_interrupts() {
 pub fn disable_fast_interrupts() {
     unsafe {
         // Clear the F bit, which is bit 0 of the DAIF bitset.
-        asm!("msr daifset, #1", options(nomem, nostack, preserves_flags));
+        asm!("msr daifset, #1", options(nostack, preserves_flags));
     }
-    compiler_fence(Ordering::SeqCst);
 }
 
 /// Returns whether regular interrupts are enabled on the current CPU.
